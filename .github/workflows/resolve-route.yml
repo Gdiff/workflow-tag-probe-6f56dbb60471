@@ -1,4 +1,4 @@
-name: Resolve route probe
+name: Resolve route exact probe
 
 on:
   push:
@@ -18,27 +18,38 @@ jobs:
     permissions:
       actions: write
       contents: write
-      pull-requests: read
+      pull-requests: write
+      issues: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Preliminary trusted checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Exercise the exact resolve-conflicts dispatcher
+      - name: Exercise exact resolve-conflicts dispatcher
         if: github.event_name == 'push'
         uses: JetBrains/junie-github-action@8c442773960f53c76920978f485e0e25a66ef0fb
         with:
           resolve_conflicts: 'true'
 
-      - name: Assert automatic PR binding and pull-ref reachability
+      - name: Run exact dispatched Junie path
         if: github.event_name == 'workflow_dispatch'
+        uses: JetBrains/junie-github-action@8c442773960f53c76920978f485e0e25a66ef0fb
+        with:
+          junie_api_key: junie_fixture_invalid_resolvefc82f999
+          junie_version: '3110.7'
+          resolve_conflicts: 'true'
+          create_new_branch_for_pr: 'true'
+
+      - name: Verify workflow-identity witness
+        if: always() && github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          PR_NUMBER: ${{ inputs.prNumber }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$PR_NUMBER" -ge 1
-          git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/route-probe-head"
-          git checkout --detach refs/remotes/origin/route-probe-head
-          test -f .resolve-route-marker
-          grep -qx 'external-fork-route-marker' .resolve-route-marker
+          response="$(curl --fail --silent --show-error \\
+            --header "Authorization: Bearer $GH_TOKEN" \\
+            --header "Accept: application/vnd.github+json" \\
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues?state=all&per_page=100")"
+          test "$(printf '%s' "$response" | jq '[.[] | select(.title == "resolve-route-witness-resolvefc82f999")] | length')" -eq 1
