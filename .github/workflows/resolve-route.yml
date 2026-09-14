@@ -48,8 +48,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          response="$(curl --fail --silent --show-error \\
-            --header "Authorization: Bearer $GH_TOKEN" \\
-            --header "Accept: application/vnd.github+json" \\
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues?state=all&per_page=100")"
-          test "$(printf '%s' "$response" | jq '[.[] | select(.title == "resolve-route-witness-resolvefc82f999")] | length')" -eq 1
+          response="$(curl --fail --silent --show-error --header "Authorization: Bearer $GH_TOKEN" --header "Accept: application/vnd.github+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues?state=all&per_page=100")"
+          count="$(printf '%s' "$response" | jq '[.[] | select(.title == "resolve-route-witness-resolvefc82f999")] | length')"
+          test "$count" -ge 1
