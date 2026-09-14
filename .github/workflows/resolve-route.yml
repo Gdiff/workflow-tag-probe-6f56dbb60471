@@ -1,0 +1,44 @@
+name: Resolve route probe
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        required: true
+        type: string
+      prNumber:
+        required: true
+        type: string
+
+jobs:
+  check-conflicts:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Exercise the exact resolve-conflicts dispatcher
+        if: github.event_name == 'push'
+        uses: JetBrains/junie-github-action@8c442773960f53c76920978f485e0e25a66ef0fb
+        with:
+          resolve_conflicts: 'true'
+
+      - name: Assert automatic PR binding and pull-ref reachability
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          PR_NUMBER: ${{ inputs.prNumber }}
+        run: |
+          set -euo pipefail
+          test "$PR_NUMBER" -ge 1
+          git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/route-probe-head"
+          git checkout --detach refs/remotes/origin/route-probe-head
+          test -f .resolve-route-marker
+          grep -qx 'external-fork-route-marker' .resolve-route-marker
