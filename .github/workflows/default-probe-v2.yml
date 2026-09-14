@@ -1,0 +1,24 @@
+name: Default checkout follow-up v2
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trusted default checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Assert checkout excludes fork marker
+        run: test ! -f .fixture-trigger
+      - name: Assert workflow run binds one PR
+        run: test "$(jq '.workflow_run.pull_requests | length' "$GITHUB_EVENT_PATH")" -eq 1
+      - name: Assert source event
+        run: test "$(jq -r '.workflow_run.event' "$GITHUB_EVENT_PATH")" = "pull_request"
