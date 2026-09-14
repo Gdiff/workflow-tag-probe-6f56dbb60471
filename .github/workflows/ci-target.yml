@@ -1,0 +1,15 @@
+name: CI Target Probe
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+permissions: {}
+
+jobs:
+  safe-metadata-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Neutral metadata gate
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: test "$PR_TITLE" != "neutral target failure"
