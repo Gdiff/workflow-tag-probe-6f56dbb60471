@@ -1,0 +1,27 @@
+name: Target follow-up probe
+on:
+  workflow_run:
+    workflows: ["CI Target Probe"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preliminary trusted checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 1
+      - name: Assert target-event composition
+        shell: bash
+        run: |
+          test ! -f .target-trigger
+          test "$(jq '.workflow_run.pull_requests | length' "$GITHUB_EVENT_PATH")" -eq 1
+          test "$(jq -r '.workflow_run.event' "$GITHUB_EVENT_PATH")" = "pull_request_target"
+          echo "trusted_checkout=true"
+          echo "associated_pull_request=true"
