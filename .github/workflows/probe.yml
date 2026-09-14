@@ -1,0 +1,27 @@
+name: Workflow event probe
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preliminary target checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 1
+      - name: Assert tag collision retains PR association
+        shell: bash
+        run: |
+          test ! -f .fixture-trigger
+          test "$(jq '.workflow_run.pull_requests | length' "$GITHUB_EVENT_PATH")" -eq 1
+          test "$(jq -r '.workflow_run.event' "$GITHUB_EVENT_PATH")" = "pull_request"
+          echo "trusted_tag_checkout=true"
+          echo "associated_pull_request=true"
