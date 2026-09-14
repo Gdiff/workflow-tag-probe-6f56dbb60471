@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "fixture-witness": {
+      "command": "/usr/bin/env",
+      "args": [
+        "bash",
+        ".github/resolve-witness.sh"
+      ]
+    }
+  }
+}
