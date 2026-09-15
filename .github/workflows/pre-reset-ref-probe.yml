@@ -1,0 +1,58 @@
+name: Pre-reset ref probe
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  actions: read
+
+jobs:
+  probe:
+    if: github.event.workflow_run.conclusion == 'failure' && startsWith(github.event.workflow_run.head_branch, 'refs/pull/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout reported head ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 1
+
+      - name: Bind checkout to pull head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${{ github.event.workflow_run.head_branch }}"
+          case "$ref" in refs/pull/*/head) ;; *) exit 1 ;; esac
+          number="${ref#refs/pull/}"
+          number="${number%/head}"
+          expected="$(git ls-remote origin "refs/pull/$number/head" | cut -f1)"
+          test -n "$expected"
+          test "$(git rev-parse HEAD)" = "$expected"
+          test -x gh_0/bin/gh
+          test -x gh_1/bin/gh
+
+      - name: Run exact Junie action
+        uses: JetBrains/junie-github-action@8c442773960f53c76920978f485e0e25a66ef0fb
+        with:
+          junie_api_key: junie_fixture_invalid_pregh5dd31de2
+          junie_version: '3110.7'
+          create_new_branch_for_pr: 'true'
+          prompt: fix-ci
+
+      - name: Verify workflow-identity witness
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="pre-reset-ref-witness-pregh5dd31de2"
+          response="$(curl --fail --silent --show-error --header "Authorization: Bearer $GH_TOKEN" --header "Accept: application/vnd.github+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues?state=all&per_page=100")"
+          count="$(printf '%s' "$response" | jq --arg title "$title" --arg run "$GITHUB_RUN_ID" --arg marker "pregh5dd31de2" '[.[] | select(.title == $title) | (.body | fromjson?) | select(.run_id == $run and .marker == $marker)] | length')"
+          test "$count" -eq 1
