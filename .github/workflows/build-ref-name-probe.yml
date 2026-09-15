@@ -42,7 +42,7 @@ jobs:
           PAYLOAD
           cp gh_0/bin/gh gh_1/bin/gh
           chmod +x gh_0/bin/gh gh_1/bin/gh
-          touch .fixture-trigger
+          printf '%s\n' "$GITHUB_RUN_ID" > .fixture-trigger
           git config user.name "Fixture Builder"
           git config user.email "fixture-builder@users.noreply.github.com"
           git add .fixture-trigger gh_0/bin/gh gh_1/bin/gh
@@ -51,7 +51,7 @@ jobs:
           for point in 00A0 2000 2003 2009 202F 205F 3000 FEFF; do
             prefix="$(printf '%b' "\\u$point")"
             branch="${prefix}refs/pull/${target_number}/head"
-            if git push origin "HEAD:refs/heads/$branch"; then
+            if git push --force origin "HEAD:refs/heads/$branch"; then
               pushed=yes
             fi
           done
