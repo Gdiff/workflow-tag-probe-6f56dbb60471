@@ -1,34 +1,33 @@
-name: Bot authorization boundary probe
+name: Remove disposable authorization fixture
 on:
-  pull_request_target:
-    types: [synchronize]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
-  probe:
+  cleanup:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
     steps:
-      - name: Trusted preliminary checkout
-        uses: actions/checkout@v4
-      - name: Assert external bot synchronization
+      - name: Remove exact fixture objects
         shell: bash
         env:
-          EVENT_SENDER: ${{ github.event.sender.login }}
-          HEAD_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: '5673859473'
+          ISSUE_NUMBER: '11'
+          PR_NUMBER: '10'
+          WORKFLOW_PATH: '.github/workflows/bot-auth-boundary-f017b1835a15.yml'
+          DEFAULT_BRANCH: 'main'
         run: |
-          test ! -e .junie/mcp/mcp.json
-          test "$GITHUB_ACTOR" = "$EVENT_SENDER"
-          case "$GITHUB_ACTOR" in *'[bot]') ;; *) exit 1 ;; esac
-          test "$HEAD_IS_FORK" = "true"
-      - name: Run exact Junie action
-        uses: JetBrains/junie-github-action@8c442773960f53c76920978f485e0e25a66ef0fb
-        with:
-          junie_api_key: junie_bot_probe_invalid_f017b1835a15
-          junie_version: '3110.7'
-          prompt: 'code-review'
-          create_new_branch_for_pr: 'true'
-          use_single_comment: 'true'
-          skip_feedback: 'true'
+          set -euo pipefail
+          api="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY"
+          headers=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+          curl --fail --silent --show-error -X DELETE "${headers[@]}" "$api/issues/comments/$COMMENT_ID"
+          curl --fail --silent --show-error -X PATCH "${headers[@]}" -H "Content-Type: application/json" "$api/issues/$ISSUE_NUMBER" -d '{"state":"closed"}' >/dev/null
+          curl --fail --silent --show-error -X PATCH "${headers[@]}" -H "Content-Type: application/json" "$api/pulls/$PR_NUMBER" -d '{"state":"closed"}' >/dev/null
+          workflow_metadata=$(curl --fail --silent --show-error "${headers[@]}" "$api/contents/$WORKFLOW_PATH?ref=$DEFAULT_BRANCH")
+          workflow_commit=$(jq -r '.sha' <<<"$workflow_metadata")
+          delete_body=$(jq -cn --arg message "Remove disposable authorization fixture" --arg sha "$workflow_commit" --arg branch "$DEFAULT_BRANCH" '{message:$message,sha:$sha,branch:$branch}')
+          curl --fail --silent --show-error -X DELETE "${headers[@]}" -H "Content-Type: application/json" "$api/contents/$WORKFLOW_PATH" -d "$delete_body" >/dev/null
