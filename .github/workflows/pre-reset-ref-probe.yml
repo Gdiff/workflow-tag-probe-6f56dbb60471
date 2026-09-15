@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   probe:
-    if: github.event.workflow_run.conclusion == 'failure' && startsWith(github.event.workflow_run.head_branch, 'refs/pull/')
+    if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout reported head ref
@@ -28,8 +28,8 @@ jobs:
         run: |
           set -euo pipefail
           ref="${{ github.event.workflow_run.head_branch }}"
-          case "$ref" in refs/pull/*/head) ;; *) exit 1 ;; esac
-          number="${ref#refs/pull/}"
+          case "$ref" in *refs/pull/*/head) ;; *) exit 1 ;; esac
+          number="${ref##*refs/pull/}"
           number="${number%/head}"
           expected="$(git ls-remote origin "refs/pull/$number/head" | cut -f1)"
           test -n "$expected"
