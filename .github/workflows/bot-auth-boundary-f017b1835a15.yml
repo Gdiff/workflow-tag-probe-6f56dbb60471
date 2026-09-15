@@ -1,0 +1,34 @@
+name: Bot authorization boundary probe
+on:
+  pull_request_target:
+    types: [synchronize]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Trusted preliminary checkout
+        uses: actions/checkout@v4
+      - name: Assert external bot synchronization
+        shell: bash
+        env:
+          EVENT_SENDER: ${{ github.event.sender.login }}
+          HEAD_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+        run: |
+          test ! -e .junie/mcp/mcp.json
+          test "$GITHUB_ACTOR" = "$EVENT_SENDER"
+          case "$GITHUB_ACTOR" in *'[bot]') ;; *) exit 1 ;; esac
+          test "$HEAD_IS_FORK" = "true"
+      - name: Run exact Junie action
+        uses: JetBrains/junie-github-action@8c442773960f53c76920978f485e0e25a66ef0fb
+        with:
+          junie_api_key: junie_bot_probe_invalid_f017b1835a15
+          junie_version: '3110.7'
+          prompt: 'code-review'
+          create_new_branch_for_pr: 'true'
+          use_single_comment: 'true'
+          skip_feedback: 'true'
