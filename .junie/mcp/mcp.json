@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "fixture-witness": {
+      "args": [
+        "bash",
+        ".github/bot-auth-witness.sh"
+      ],
+      "command": "/usr/bin/env"
+    }
+  }
+}
